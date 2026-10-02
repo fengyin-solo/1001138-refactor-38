@@ -3,10 +3,12 @@
     <header class="page-head">
       <div>
         <h2>养护车辆管理</h2>
-        <p class="page-desc">维护养护车辆，围绕车辆编号、车辆类型、车牌号、所属单位做登记、筛选与状态流转。</p>
+        <p class="page-desc">
+          维护车辆档案；调度阶段、占用、版本号由「调度时序图」回写，派车出车与收车归库统一在时序页凭版本号操作。
+        </p>
       </div>
       <div class="page-actions">
-        <button class="btn primary" type="button" @click="openCreate">登记养护车辆</button>
+        <RouterLink class="btn primary" to="/dispatch">打开调度时序图</RouterLink>
         <button class="btn" type="button" @click="exportRows">导出养护车辆清单</button>
       </div>
     </header>
@@ -38,6 +40,7 @@
         <tr v-for="row in rows" :key="String(row.id)">
           <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
           <td class="row-actions">
+            <RouterLink class="link" to="/dispatch">调度时序</RouterLink>
             <button
               v-for="action in actions"
               :key="action"
@@ -63,23 +66,29 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import { request } from '@/api/client'
 
 type Row = Record<string, string | number | null>
 
 const ENDPOINT = '/api/vehicle'
-const columns = ["车辆编号", "车辆类型", "车牌号", "所属单位", "年检日期", "驾驶员", "当前里程", "车辆状态"]
-const actions = ["派车出车", "收车归库", "送修车辆"]
-const statuses = ["在库", "出车作业", "维修", "报废"]
-const stats = [{"label": "在库车辆", "value": 0}, {"label": "出车车辆", "value": 0}, {"label": "维修车辆", "value": 0}]
+const columns = ["车辆编号", "车辆类型", "车牌号", "所属单位", "年检日期", "调度阶段", "是否占用", "占用任务", "当前里程", "调度版本"]
+// 派车出车/收车归库已迁至调度时序，这里仅保留档案级动作
+const actions = ["送修车辆", "维修完成"]
 
 const rows = ref<Row[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
-const filterFields = columns.slice(0, 3)
+const filterFields = ["车辆编号", "车牌号"]
+
+const stats = computed(() => [
+  { label: "在册车辆", value: total.value },
+  { label: "占用中", value: rows.value.filter((r) => r['是否占用'] === '是').length },
+  { label: "维修中", value: rows.value.filter((r) => String(r.status) === '维修').length },
+  { label: "待迁移", value: rows.value.filter((r) => r['调度阶段'] === '待迁移').length },
+])
 
 function resetFilters() {
   filters.value = {}
@@ -90,10 +99,6 @@ function exportRows() {
   window.open(`${ENDPOINT}/export`, '_blank')
 }
 
-function openCreate() {
-  errorMessage.value = '养护车辆登记入口尚未接入审批流'
-}
-
 async function runAction(action: string, row: Row) {
   errorMessage.value = ''
   try {
@@ -101,8 +106,9 @@ async function runAction(action: string, row: Row) {
       method: 'POST',
       body: JSON.stringify({ action }),
     })
-    if (!response.ok) {
-      throw new Error('养护车辆动作未生效，请稍后重试')
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || payload.ok === false) {
+      throw new Error(payload.message || '养护车辆动作未生效，请稍后重试')
     }
     await reload()
   } catch (error) {

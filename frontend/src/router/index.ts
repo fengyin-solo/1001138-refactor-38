@@ -18,6 +18,7 @@ const Expansion = () => import('@/views/expansion/index.vue')
 const Bearing = () => import('@/views/bearing/index.vue')
 const Project = () => import('@/views/project/index.vue')
 const Vehicle = () => import('@/views/vehicle/index.vue')
+const Dispatch = () => import('@/views/dispatch/index.vue')
 const Material = () => import('@/views/material/index.vue')
 
 const router = createRouter({
@@ -41,6 +42,7 @@ const router = createRouter({
     { path: '/bearing', name: 'bearing', component: Bearing },
     { path: '/project', name: 'project', component: Project },
     { path: '/vehicle', name: 'vehicle', component: Vehicle },
+    { path: '/dispatch', name: 'dispatch', component: Dispatch },
     { path: '/material', name: 'material', component: Material },
   ],
 })
